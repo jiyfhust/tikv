@@ -292,7 +292,7 @@ pub fn build_executors<S: Storage + 'static>(
                 Box::new(
                     BatchLimitExecutor::new(
                         executor,
-                        ed.get_limit().get_limit() as usize,
+                        1000,
                         is_src_scan_executor,
                     )?
                     .collect_summary(summary_slot_index),
