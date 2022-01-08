@@ -391,6 +391,7 @@ impl IndexScanExecutorImpl {
                 return Err(other_err!("{}th column is missing value", i));
             }
             let (value, remaining) = datum::split_datum(datum, false)?;
+            println!("split value={:?}", value);
             column.mut_raw().push(value);
             *datum = remaining;
         }

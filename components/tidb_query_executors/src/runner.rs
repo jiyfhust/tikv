@@ -294,6 +294,9 @@ pub fn build_executors<S: Storage + 'static>(
                         executor,
                         ed.get_limit().get_limit() as usize,
                         is_src_scan_executor,
+                        ed.get_limit().get_covered_pre_index(),
+                        ed.get_limit().get_covered_index_count() as usize,
+                        
                     )?
                     .collect_summary(summary_slot_index),
                 )

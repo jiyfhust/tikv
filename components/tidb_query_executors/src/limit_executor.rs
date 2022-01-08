@@ -1,10 +1,15 @@
 // Copyright 2019 TiKV Project Authors. Licensed under Apache-2.0.
-
+use std::str;
+use std::cmp::Ordering;
+use std::ops::Index;
 use tipb::FieldType;
 
 use crate::interface::*;
 use tidb_query_common::storage::IntervalRange;
 use tidb_query_common::Result;
+use tidb_query_datatype::codec::data_type::{Bytes, LogicalRows};
+use tidb_query_datatype::expr::EvalContext;
+use crate::util::ensure_columns_decoded;
 
 /// Executor that retrieves rows from the source executor
 /// and only produces part of the rows.
@@ -12,14 +17,24 @@ pub struct BatchLimitExecutor<Src: BatchExecutor> {
     src: Src,
     remaining_rows: usize,
     is_src_scan_executor: bool,
+    coveredPreIndex: bool,
+    coveredCount: usize,
+    prev_col_value: Option<Bytes>,
+    diff_idx_value_count: usize,
+    efficient_rows: usize,
 }
 
 impl<Src: BatchExecutor> BatchLimitExecutor<Src> {
-    pub fn new(src: Src, limit: usize, is_src_scan_executor: bool) -> Result<Self> {
+    pub fn new(src: Src, limit: usize, is_src_scan_executor: bool, coveredPreIndex: bool, coveredCount: usize) -> Result<Self> {
         Ok(Self {
             src,
             remaining_rows: limit,
             is_src_scan_executor,
+            prev_col_value: None,
+            diff_idx_value_count: 0,
+            efficient_rows: 0,
+            coveredPreIndex,
+            coveredCount,
         })
     }
 }
@@ -40,6 +55,54 @@ impl<Src: BatchExecutor> BatchExecutor for BatchLimitExecutor<Src> {
             scan_rows
         };
         let mut result = self.src.next_batch(real_scan_rows);
+        
+        println!("schema={:?}", result.physical_columns);
+        
+        let logical_rows = LogicalRows::Identical { size: result.physical_columns.rows_len()};
+        
+        for logical_row_index in 0..result.logical_rows.len() {
+            result.physical_columns[1]
+                .ensure_decoded(&mut EvalContext::default(),  &self.schema()[1], logical_rows);
+            let colVec = result.physical_columns.as_slice()[1].decoded().to_bytes_vec();
+            let colOpt = colVec.get(logical_row_index);
+            match colOpt {
+                Some(Some(value)) => {
+                    match &self.prev_col_value{
+                        Some(prevValue) => {
+                            let a = prevValue.as_slice();
+                            let b = value.as_slice();
+                            println!("a={:?}", a);
+                            println!("b={:?}", b);
+                            if a.cmp(b)!=Ordering::Equal {
+                                println!("not Equal");
+                                self.diff_idx_value_count += 1;
+                                if self.diff_idx_value_count > 1 {
+                                    if self.efficient_rows == self.remaining_rows {
+                                        self.prev_col_value = Some(value.clone());
+                                    }else if self.efficient_rows > self.remaining_rows {
+                                        result.is_drained = Ok(true);
+                                        self.remaining_rows = 0;
+                                    }
+                                }else{
+                                    self.prev_col_value = Some(value.clone());
+                                }
+                            }
+                            if self.diff_idx_value_count > 1 {
+                                self.efficient_rows += 1;
+                            }
+                        }
+                        None => {
+                            self.prev_col_value = Some(value.clone());
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
+        
+        //else
+        
         if result.logical_rows.len() < self.remaining_rows {
             self.remaining_rows -= result.logical_rows.len();
         } else {
@@ -52,6 +115,7 @@ impl<Src: BatchExecutor> BatchExecutor for BatchLimitExecutor<Src> {
         result
     }
 
+    
     #[inline]
     fn collect_exec_stats(&mut self, dest: &mut ExecuteStats) {
         self.src.collect_exec_stats(dest);
