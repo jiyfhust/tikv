@@ -221,7 +221,6 @@ impl RpnExpression {
                 RpnExpressionNode::ColumnRef { offset } => {
                     let field_type = &schema[*offset];
                     let decoded_physical_column = input_physical_columns[*offset].decoded();
-                    println!("decoded_physical_column={:?}", decoded_physical_column);
                     assert_eq!(input_logical_rows.len(), output_rows);
                     stack.push(RpnStackNode::Vector {
                         value: RpnStackNodeVectorValue::Ref {

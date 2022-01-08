@@ -50,7 +50,6 @@ impl<Src: BatchExecutor> BatchSelectionExecutor<Src> {
         let mut conditions = Vec::with_capacity(conditions_def.len());
         let mut ctx = EvalContext::new(config);
         for def in conditions_def {
-            println!("def={:?}", def);
             conditions.push(RpnExpressionBuilder::build_from_expr_tree(
                 def,
                 &mut ctx,

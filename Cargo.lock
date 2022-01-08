@@ -5840,7 +5840,7 @@ dependencies = [
 [[package]]
 name = "tipb"
 version = "0.0.1"
-source = "git+https://github.com/jiyfhust/tipb.git?branch=hachathon2021#441a859ba5367d291caecb276779f56d932d9615"
+source = "git+https://github.com/jiyfhust/tipb.git?branch=hachathon2021#0b0eed12badeb92eea6ae26dcd1d9585b25b7e3d"
 dependencies = [
  "futures 0.3.15",
  "grpcio",

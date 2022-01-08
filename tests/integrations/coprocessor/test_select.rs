@@ -72,8 +72,8 @@ fn test_select() {
 fn test_batch_row_limit() {
     let data = vec![
         (1, Some("name:0"), 2),
-        (1, Some("name:0"), 3),
-        (2, Some("name:1"), 1),
+        (2, Some("name:4"), 3),
+        (4, Some("name:3"), 1),
         (5, Some("name:1"), 4),
     ];
     let batch_row_limit = 3;
